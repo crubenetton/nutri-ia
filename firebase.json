@@ -1,0 +1,32 @@
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "nutri-ia-ded99",
+          "configurations": {
+            "android": "1:964905576605:android:7f06444d75b645fb89d8c74",
+            "ios": "1:964905576605:ios:126e5fd000353f7bf9d8c74",
+            "macos": "1:964905576605:ios:126e5fd000353f7bf9d8c74",
+            "web": "1:964905576605:web:74f55e8ccda949f4d9d8c74",
+            "windows": "1:964905576605:web:e4f11d204f8921eb9d8c74"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

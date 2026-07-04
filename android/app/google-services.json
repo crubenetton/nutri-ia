@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "964905576605",
+    "project_id": "nutri-ia-ded99",
+    "storage_bucket": "nutri-ia-ded99.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:964905576605:android:7f0644d75b645fb89d8c74",
+        "android_client_info": {
+          "package_name": "com.example.nutri_lucas_ia"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAgft01bPomioJARcwdKou0hpkg-9L-nIU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
