@@ -49,7 +49,6 @@ class DefaultFirebaseOptions {
     storageBucket: 'nutri-ia-ded99.firebasestorage.app',
     measurementId: 'G-7HFXTQ9M73',
   );
-
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAgft01bPomioJARcwdKou0hpkg-9L-nIU',
     appId: '1:964905576605:android:7f0644d75b645fb89d8c74',
