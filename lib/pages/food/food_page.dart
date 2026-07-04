@@ -26,7 +26,12 @@ class _FoodPageState extends State<FoodPage> {
 
   void estimateByText() {
     final text = aiText.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Digite o que você comeu ou bebeu.')),
+      );
+      return;
+    }
 
     final estimated = FoodAIEstimator.estimate(text);
 
@@ -44,6 +49,7 @@ class _FoodPageState extends State<FoodPage> {
   void applyPortion() {
     final r = result;
     if (r == null) return;
+
     setState(() {
       calories.text = adjusted(r.calories).toString();
       protein.text = adjusted(r.protein).toString();
@@ -52,14 +58,39 @@ class _FoodPageState extends State<FoodPage> {
     });
   }
 
+  String coachAfterMeal(int kcal, int prot) {
+    if (prot >= 35) {
+      return 'Excelente refeição! Boa quantidade de proteína. Isso ajuda muito no ganho de massa e saciedade.';
+    }
+    if (prot >= 15) {
+      return 'Boa refeição. Ainda vale reforçar proteína nas próximas refeições.';
+    }
+    if (kcal > 600 && prot < 15) {
+      return 'Essa refeição teve bastante caloria e pouca proteína. Na próxima, tente incluir frango, ovos, carne, iogurte ou whey.';
+    }
+    return 'Refeição registrada. Continue acompanhando para bater suas metas do dia.';
+  }
+
   Future<void> addMeal() async {
+    final kcal = int.tryParse(calories.text) ?? 0;
+    final prot = int.tryParse(protein.text) ?? 0;
+
+    if (name.text.trim().isEmpty || kcal <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Preencha pelo menos nome e calorias.')),
+      );
+      return;
+    }
+
     setState(() => loading = true);
     try {
       await NutriDatabase().addMeal(
-        name: name.text.trim().isEmpty ? 'Refeição' : name.text,
-        calories: int.tryParse(calories.text) ?? 0,
-        protein: int.tryParse(protein.text) ?? 0,
+        name: name.text.trim(),
+        calories: kcal,
+        protein: prot,
       );
+
+      final coach = coachAfterMeal(kcal, prot);
 
       aiText.clear();
       name.clear();
@@ -74,8 +105,18 @@ class _FoodPageState extends State<FoodPage> {
       });
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Refeição salva no diário.')),
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Refeição salva ✅'),
+          content: Text(coach),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Continuar'),
+            ),
+          ],
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -88,13 +129,17 @@ class _FoodPageState extends State<FoodPage> {
   Future<void> quickSave(String title, int kcal, int prot) async {
     await NutriDatabase().addMeal(name: title, calories: kcal, protein: prot);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$title salvo.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$title salvo. Dashboard atualizado.')),
+    );
   }
 
   Future<void> deleteMeal(String id) async {
     await NutriDatabase().deleteMeal(id);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refeição apagada.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Refeição apagada.')),
+    );
   }
 
   Widget quick(String title, int kcal, int prot) {
@@ -114,12 +159,7 @@ class _FoodPageState extends State<FoodPage> {
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              item.name,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
+          Expanded(child: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold))),
           Text('${adjusted(item.calories)} kcal'),
           const SizedBox(width: 10),
           Text('${adjusted(item.protein)}g prot'),
@@ -128,22 +168,37 @@ class _FoodPageState extends State<FoodPage> {
     );
   }
 
+  Widget summaryCard(int totalKcal, int totalProtein, int count) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16A34A),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Resumo de hoje', style: TextStyle(color: Colors.white70)),
+        const SizedBox(height: 8),
+        Text('$totalKcal kcal', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: Colors.white)),
+        const SizedBox(height: 6),
+        Text('$totalProtein g de proteína • $count refeição(ões)', style: const TextStyle(color: Colors.white)),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final r = result;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Diário Inteligente'),
-      ),
+      appBar: AppBar(title: const Text('Diário Inteligente')),
       body: ListView(
         padding: const EdgeInsets.all(18),
         children: [
           const Text('Registrar refeição', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
           const SizedBox(height: 8),
           Text(
-            'Escreva como você falaria. O Nutri IA separa os alimentos, calcula e deixa você ajustar.',
-            style: TextStyle(color: Colors.white.withOpacity(.75)),
+            'Escreva como você falaria. O Nutri IA estima e deixa você ajustar antes de salvar.',
+            style: TextStyle(color: Colors.white.withOpacity(.72)),
           ),
           const SizedBox(height: 14),
 
@@ -153,7 +208,7 @@ class _FoodPageState extends State<FoodPage> {
             maxLines: 6,
             decoration: const InputDecoration(
               labelText: 'O que você comeu ou bebeu?',
-              hintText: 'Ex: comi 2 ovos, 2 pães com manteiga e café com leite',
+              hintText: 'Ex: café com leite, 2 ovos e pão com manteiga',
             ),
           ),
           const SizedBox(height: 12),
@@ -163,7 +218,7 @@ class _FoodPageState extends State<FoodPage> {
             label: const Text('Analisar refeição'),
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           const Text('Salvar rápido', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Wrap(
@@ -184,34 +239,31 @@ class _FoodPageState extends State<FoodPage> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Resultado detalhado', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    for (final item in r.items) itemRow(item),
-                    const SizedBox(height: 12),
-                    Text('Quantidade: ${(portion * 100).round()}%'),
-                    Slider(
-                      value: portion,
-                      min: 0.25,
-                      max: 2.0,
-                      divisions: 7,
-                      label: '${(portion * 100).round()}%',
-                      onChanged: (value) {
-                        setState(() => portion = value);
-                        applyPortion();
-                      },
-                    ),
-                    const Divider(),
-                    Text('🔥 Total: ${adjusted(r.calories)} kcal', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text('🍗 Proteína: ${adjusted(r.protein)} g'),
-                    Text('🍞 Carboidratos: ${adjusted(r.carbs)} g'),
-                    Text('🥑 Gorduras: ${adjusted(r.fat)} g'),
-                    const SizedBox(height: 8),
-                    Text(r.explanation, style: TextStyle(color: Colors.white.withOpacity(.65))),
-                  ],
-                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Resultado detalhado', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  for (final item in r.items) itemRow(item),
+                  const SizedBox(height: 12),
+                  Text('Quantidade: ${(portion * 100).round()}%'),
+                  Slider(
+                    value: portion,
+                    min: 0.25,
+                    max: 2.0,
+                    divisions: 7,
+                    label: '${(portion * 100).round()}%',
+                    onChanged: (value) {
+                      setState(() => portion = value);
+                      applyPortion();
+                    },
+                  ),
+                  const Divider(),
+                  Text('🔥 Total: ${adjusted(r.calories)} kcal', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text('🍗 Proteína: ${adjusted(r.protein)} g'),
+                  Text('🍞 Carboidratos: ${adjusted(r.carbs)} g'),
+                  Text('🥑 Gorduras: ${adjusted(r.fat)} g'),
+                  const SizedBox(height: 8),
+                  Text(r.explanation, style: TextStyle(color: Colors.white.withOpacity(.65))),
+                ]),
               ),
             ),
           ],
@@ -239,7 +291,9 @@ class _FoodPageState extends State<FoodPage> {
           const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: loading ? null : addMeal,
-            icon: loading ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.check),
+            icon: loading
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.check),
             label: const Text('Salvar no diário'),
           ),
 
@@ -252,7 +306,12 @@ class _FoodPageState extends State<FoodPage> {
               final meals = snapshot.data?.docs ?? [];
 
               if (snapshot.hasError) {
-                return Card(child: ListTile(title: const Text('Erro ao carregar refeições'), subtitle: Text('${snapshot.error}')));
+                return Card(
+                  child: ListTile(
+                    title: const Text('Erro ao carregar refeições'),
+                    subtitle: Text('${snapshot.error}'),
+                  ),
+                );
               }
 
               if (meals.isEmpty) {
@@ -265,13 +324,8 @@ class _FoodPageState extends State<FoodPage> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.summarize),
-                      title: Text('$totalKcal kcal hoje'),
-                      subtitle: Text('$totalProtein g de proteína registrados'),
-                    ),
-                  ),
+                  summaryCard(totalKcal, totalProtein, meals.length),
+                  const SizedBox(height: 10),
                   for (final meal in meals)
                     Card(
                       child: ListTile(
