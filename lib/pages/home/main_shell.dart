@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/app_info.dart';
-import '../about/about_page.dart';
-import '../ai_photo/ai_photo_page.dart';
-import '../coach/coach_page.dart';
-import '../exercises/exercises_page.dart';
-import '../food/food_page.dart';
-import '../medicines/medicines_page.dart';
 import '../plan/weekly_plan_page.dart';
-import '../profile/profile_page.dart';
-import '../progress/body_progress_page.dart';
+import '../food/food_page.dart';
+import '../coach/coach_page.dart';
 import '../reports/reports_page.dart';
+import '../profile/profile_page.dart';
+import '../medicines/medicines_page.dart';
+import '../exercises/exercises_page.dart';
+import '../progress/body_progress_page.dart';
+import '../ai_photo/ai_photo_page.dart';
+import '../about/about_page.dart';
 import '../settings/settings_page.dart';
-import '../settings/v1_status_page.dart';
+import '../water/water_page.dart';
+import '../../core/constants/app_info.dart';
 import 'home_page.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
-
   @override
   State<MainShell> createState() => _MainShellState();
 }
@@ -46,17 +45,19 @@ class _MainShellState extends State<MainShell> {
           child: ListView(
             children: [
               const ListTile(
-                title: Text(
-                  AppInfo.name,
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
+                title: Text(AppInfo.name, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 subtitle: Text('Desenvolvido por ${AppInfo.developer}'),
               ),
               const Divider(),
               ListTile(
+                leading: const Icon(Icons.water_drop),
+                title: const Text('Água Inteligente'),
+                subtitle: const Text('Meta, progresso e botões rápidos'),
+                onTap: () => go(context, const WaterPage()),
+              ),
+              ListTile(
                 leading: const Icon(Icons.camera_alt),
                 title: const Text('Foto IA'),
-                subtitle: const Text('Fluxo de análise de comida'),
                 onTap: () => go(context, const AIPhotoPage()),
               ),
               ListTile(
@@ -76,12 +77,6 @@ class _MainShellState extends State<MainShell> {
               ),
               const Divider(),
               ListTile(
-                leading: const Icon(Icons.rocket_launch),
-                title: const Text('Status v1.0'),
-                subtitle: const Text('Progresso dos módulos'),
-                onTap: () => go(context, const V1StatusPage()),
-              ),
-              ListTile(
                 leading: const Icon(Icons.settings),
                 title: const Text('Configurações'),
                 onTap: () => go(context, const SettingsPage()),
@@ -90,14 +85,6 @@ class _MainShellState extends State<MainShell> {
                 leading: const Icon(Icons.info_outline),
                 title: const Text('Sobre'),
                 onTap: () => go(context, const AboutPage()),
-              ),
-              const Padding(
-                padding: EdgeInsets.all(18),
-                child: Text(
-                  'Powered by ${AppInfo.developer}',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
-                ),
               ),
             ],
           ),
