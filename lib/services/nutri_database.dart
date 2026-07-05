@@ -11,77 +11,71 @@ class NutriDatabase {
     return user.uid;
   }
 
+  String get todayKey {
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '${now.year}-$month-$day';
+  }
+
   DocumentReference<Map<String, dynamic>> get userDoc => _db.collection('users').doc(uid);
+
+  CollectionReference<Map<String, dynamic>> mealsCollection() => userDoc.collection('meals');
+  CollectionReference<Map<String, dynamic>> exercisesCollection() => userDoc.collection('exercises');
+  CollectionReference<Map<String, dynamic>> medicinesCollection() => userDoc.collection('medicines');
+  CollectionReference<Map<String, dynamic>> bodyProgressCollection() => userDoc.collection('bodyProgress');
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> userStream() => userDoc.snapshots();
 
-  CollectionReference<Map<String, dynamic>> mealsCollection() => userDoc.collection('meals');
-  CollectionReference<Map<String, dynamic>> medicinesCollection() => userDoc.collection('medicines');
-  CollectionReference<Map<String, dynamic>> exercisesCollection() => userDoc.collection('exercises');
-  CollectionReference<Map<String, dynamic>> bodyProgressCollection() => userDoc.collection('bodyProgress');
-
   Stream<QuerySnapshot<Map<String, dynamic>>> mealsTodayStream() {
-    final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day);
-    final end = start.add(const Duration(days: 1));
+    return mealsCollection().where('dateKey', isEqualTo: todayKey).snapshots();
+  }
 
-    return mealsCollection()
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .where('createdAt', isLessThan: Timestamp.fromDate(end))
-        .orderBy('createdAt', descending: true)
-        .snapshots();
+  Stream<QuerySnapshot<Map<String, dynamic>>> exercisesTodayStream() {
+    return exercisesCollection().where('dateKey', isEqualTo: todayKey).snapshots();
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> mealsLastDaysStream({int days = 7}) {
     final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day).subtract(Duration(days: days - 1));
+    final keys = List.generate(days, (index) {
+      final date = now.subtract(Duration(days: index));
+      final month = date.month.toString().padLeft(2, '0');
+      final day = date.day.toString().padLeft(2, '0');
+      return '${date.year}-$month-$day';
+    });
 
-    return mealsCollection()
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .orderBy('createdAt', descending: true)
-        .snapshots();
-  }
-
-  Stream<QuerySnapshot<Map<String, dynamic>>> exercisesTodayStream() {
-    final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day);
-    final end = start.add(const Duration(days: 1));
-
-    return exercisesCollection()
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .where('createdAt', isLessThan: Timestamp.fromDate(end))
-        .orderBy('createdAt', descending: true)
-        .snapshots();
+    return mealsCollection().where('dateKey', whereIn: keys).snapshots();
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> exercisesLastDaysStream({int days = 7}) {
     final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day).subtract(Duration(days: days - 1));
+    final keys = List.generate(days, (index) {
+      final date = now.subtract(Duration(days: index));
+      final month = date.month.toString().padLeft(2, '0');
+      final day = date.day.toString().padLeft(2, '0');
+      return '${date.year}-$month-$day';
+    });
 
-    return exercisesCollection()
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .orderBy('createdAt', descending: true)
-        .snapshots();
+    return exercisesCollection().where('dateKey', whereIn: keys).snapshots();
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> medicinesStream() {
-    return medicinesCollection().orderBy('createdAt', descending: true).snapshots();
-  }
+  Stream<QuerySnapshot<Map<String, dynamic>>> medicinesStream() => medicinesCollection().snapshots();
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> bodyProgressStream() {
-    return bodyProgressCollection().orderBy('createdAt', descending: true).snapshots();
-  }
+  Stream<QuerySnapshot<Map<String, dynamic>>> bodyProgressStream() => bodyProgressCollection().snapshots();
 
   Future<void> addMeal({
     required String name,
     required int calories,
     required int protein,
   }) async {
+    final now = DateTime.now();
+
     await mealsCollection().add({
       'name': name.trim(),
       'calories': calories,
       'protein': protein,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': Timestamp.fromDate(now),
+      'dateKey': todayKey,
       'source': 'manual_or_ai_local',
     });
   }
@@ -95,17 +89,42 @@ class NutriDatabase {
     required int calories,
     required int minutes,
   }) async {
+    final now = DateTime.now();
+
     await exercisesCollection().add({
       'name': name.trim(),
       'calories': calories,
       'minutes': minutes,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': Timestamp.fromDate(now),
+      'dateKey': todayKey,
       'source': 'manual',
     });
   }
 
   Future<void> deleteExercise(String exerciseId) async {
     await exercisesCollection().doc(exerciseId).delete();
+  }
+
+  Future<void> addWater(int ml) async {
+    final now = DateTime.now();
+
+    await userDoc.set({
+      'waterMlToday': FieldValue.increment(ml),
+      'waterDateKey': todayKey,
+      'waterUpdatedAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> resetWaterToday() async {
+    final now = DateTime.now();
+
+    await userDoc.set({
+      'waterMlToday': 0,
+      'waterDateKey': todayKey,
+      'waterUpdatedAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
   }
 
   Future<void> addMedicine({
@@ -117,7 +136,7 @@ class NutriDatabase {
       'name': name.trim(),
       'dose': dose.trim(),
       'time': time.trim(),
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': Timestamp.fromDate(DateTime.now()),
       'active': true,
       'lastTakenAt': null,
     });
@@ -125,55 +144,13 @@ class NutriDatabase {
 
   Future<void> markMedicineTaken(String medicineId) async {
     await medicinesCollection().doc(medicineId).set({
-      'lastTakenAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'lastTakenAt': Timestamp.fromDate(DateTime.now()),
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
     }, SetOptions(merge: true));
   }
 
   Future<void> deleteMedicine(String medicineId) async {
     await medicinesCollection().doc(medicineId).delete();
-  }
-
-  Future<void> addWater(int ml) async {
-    await userDoc.set({
-      'waterMlToday': FieldValue.increment(ml),
-      'waterUpdatedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  Future<void> resetWaterToday() async {
-    await userDoc.set({
-      'waterMlToday': 0,
-      'waterUpdatedAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  Future<void> completeWizard(Map<String, dynamic> data) async {
-    await userDoc.set({
-      ...data,
-      'onboardingCompleted': true,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    final medicinesText = (data['medicinesText'] ?? '').toString();
-    if (medicinesText.trim().isNotEmpty) {
-      await medicinesCollection().add({
-        'name': medicinesText.trim(),
-        'dose': 'Conferir dose',
-        'time': 'Conferir horário',
-        'createdAt': FieldValue.serverTimestamp(),
-        'active': true,
-      });
-    }
-  }
-
-  Future<void> saveSmartProfile(Map<String, dynamic> data) async {
-    await userDoc.set({
-      ...data,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
   }
 
   Future<void> addBodyProgress({
@@ -182,24 +159,55 @@ class NutriDatabase {
     required String notes,
     String photoUrl = '',
   }) async {
+    final now = DateTime.now();
+
     await bodyProgressCollection().add({
       'weightKg': weightKg,
       'waistCm': waistCm,
       'notes': notes.trim(),
       'photoUrl': photoUrl.trim(),
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': Timestamp.fromDate(now),
+      'dateKey': todayKey,
     });
 
     await userDoc.set({
       'weightKg': weightKg,
       'waistCm': waistCm,
-      'lastProgressAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'lastProgressAt': Timestamp.fromDate(now),
+      'updatedAt': Timestamp.fromDate(now),
     }, SetOptions(merge: true));
   }
 
   Future<void> deleteBodyProgress(String progressId) async {
     await bodyProgressCollection().doc(progressId).delete();
+  }
+
+  Future<void> saveSmartProfile(Map<String, dynamic> data) async {
+    await userDoc.set({
+      ...data,
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> completeWizard(Map<String, dynamic> data) async {
+    final now = DateTime.now();
+
+    await userDoc.set({
+      ...data,
+      'onboardingCompleted': true,
+      'updatedAt': Timestamp.fromDate(now),
+    }, SetOptions(merge: true));
+
+    final medicinesText = (data['medicinesText'] ?? '').toString();
+    if (medicinesText.trim().isNotEmpty) {
+      await medicinesCollection().add({
+        'name': medicinesText.trim(),
+        'dose': 'Conferir dose',
+        'time': 'Conferir horário',
+        'createdAt': Timestamp.fromDate(now),
+        'active': true,
+      });
+    }
   }
 
   Future<void> updateProfile({
@@ -221,7 +229,7 @@ class NutriDatabase {
       'goal': goal.trim(),
       'likesText': likes.trim(),
       'dislikesText': dislikes.trim(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
     }, SetOptions(merge: true));
   }
 
@@ -260,7 +268,7 @@ class NutriDatabase {
       'waterGoalLiters': waterGoalLiters,
       'proteinGoalGrams': proteinGoalGrams,
       'bmi': bmi,
-      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAt': Timestamp.fromDate(DateTime.now()),
     }, SetOptions(merge: true));
   }
 }
